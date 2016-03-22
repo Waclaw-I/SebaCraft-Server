@@ -1,0 +1,8 @@
+/Debug
+/Release
+
+openal32.dll
+sfml*
+
+SebaCraft Server.vcxproj
+SebaCraft Server.vcxproj.filters
