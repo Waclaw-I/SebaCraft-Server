@@ -10,6 +10,6 @@ using namespace std;
 
 int main()
 {
-	ServerData::Initialize();
-	ServerData::WaitForConnection();
+	ServerData myServer(33355, false);
+	while(true) myServer.listenForNewConnection();
 }
