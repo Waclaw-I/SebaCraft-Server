@@ -43,6 +43,8 @@ public:
 	ServerData(int port, bool usePublic);
 	
 	bool listenForNewConnection();
+
+	int getTotalConnections();
 };
 
 static ServerData * serverPtr;

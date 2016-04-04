@@ -33,6 +33,8 @@ ServerData::ServerData(int port, bool usePublic)
 	serverPtr = this;
 }
 
+int ServerData::getTotalConnections() { return totalConnections; }
+
 bool ServerData::listenForNewConnection()
 {
 	SOCKET newConnection = accept(sListen, (SOCKADDR*)&addr, &addrLength);
@@ -61,11 +63,8 @@ bool ServerData::processPacket(int ID, Packet packetType)
 		case pMessage:
 		{
 			string message;
-			if (!getMessage(ID, message))
-			{
-				cout << "Tutaj cos sie zjebalo" << endl;
-				return false;
-			}
+			if (!getMessage(ID, message)) return false;
+			
 
 			for (int i = 0; i < totalConnections; i++)
 			{
@@ -94,11 +93,7 @@ void ServerData::ClientHandlerThread(int ID) // index of the socket array
 	while (true)
 	{
 		if (!serverPtr->getPacketType(ID, packetType)) break;
-		if (!serverPtr->processPacket(ID, packetType))
-		{
-			cout << "Dupsko" << endl;
-			break;
-		}
+		if (!serverPtr->processPacket(ID, packetType)) break;
 	}
 
 	cout << "Lost connection to client ID: " << ID << endl;
