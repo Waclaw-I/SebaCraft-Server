@@ -1,12 +1,15 @@
 #include "ServerData.h"
 
+#include <thread>
+
+
 ServerData::ServerData(int port, bool usePublic)
 {
 	WSAData wsaData;
 	WORD DllVersion = MAKEWORD(2, 1);
 	if (WSAStartup(DllVersion, &wsaData) != 0)
 	{
-		cout << "WinSock startup failed" << endl;
+		std::cout << "WinSock startup failed" << std::endl;
 		exit(1);
 	}
 
@@ -21,12 +24,12 @@ ServerData::ServerData(int port, bool usePublic)
 	sListen = socket(AF_INET, SOCK_STREAM, NULL);
 	if (bind(sListen, (SOCKADDR*)&addr, sizeof(addr)) == SOCKET_ERROR)
 	{
-		cout << "Failed to bind the address to listening socket" << endl;
+		std::cout << "Failed to bind the address to listening socket" << std::endl;
 		exit(1);
 	}
 	if (listen(sListen, SOMAXCONN) == SOCKET_ERROR)
 	{
-		cout << "Failed to listen on listening socket" << endl;
+		std::cout << "Failed to listen on listening socket" << std::endl;
 		exit(1);
 	}
 
@@ -40,16 +43,24 @@ bool ServerData::listenForNewConnection()
 	SOCKET newConnection = accept(sListen, (SOCKADDR*)&addr, &addrLength);
 	if (newConnection == 0)
 	{
-		cout << "Failed to accept connection" << endl;
+		std::cout << "Failed to accept connection" << std::endl;
 		return false;
+	}
+	else if (totalConnections >= 2) // IN CASE SOMEONE WOULD LIKE TO JOIN, BUT THERE IS ALREADY MAXIMUM AMOUNT OF PLAYERS
+	{
+		std::string message = "There is no room for more players on the server";
+		std::cout << "Connection denied. No more room for another player" << std::endl;
+		Connections[2] = newConnection;
+		sendConsoleMessage(2, message);
 	}
 	else
 	{
-		cout << "Client Connected! ID: " << totalConnections << endl;
+		std::cout << "Client Connected! ID: " << totalConnections << std::endl;
 		Connections[totalConnections] = newConnection;
 
+		//std::thread newClient(ClientHandlerThread, totalConnections);
 		CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandlerThread, (LPVOID)(totalConnections), NULL, NULL);
-		string welcomeMessage = "Welcome on SebaCraft Server!";
+		std::string welcomeMessage = "Welcome on SebaCraft Server!";
 		sendMessage(totalConnections, welcomeMessage);
 		totalConnections++;
 		return true;
@@ -62,8 +73,10 @@ bool ServerData::processPacket(int ID, Packet packetType)
 	{
 		case pMessage:
 		{
-			string message;
+			std::string message;
 			if (!getMessage(ID, message)) return false;
+
+			message = std::to_string(ID) + message; // adding id in the first position to recognize player
 			
 
 			for (int i = 0; i < totalConnections; i++)
@@ -71,15 +84,15 @@ bool ServerData::processPacket(int ID, Packet packetType)
 				if (i == ID) continue;
 				if (!sendMessage(i, message))
 				{
-					cout << "Failed to send message from client: " << ID << endl;
+					std::cout << "Failed to send message from client: " << ID << std::endl;
 				}
 			}
-			cout << "Processed chat message from user " << ID;
+			std::cout << ID << ": " << message.substr(1, message.size() - 1) << std::endl; // we are displaying everything on the server console
 			break;
 		}
 		default:
 		{
-			cout << "Unrecognized packet: " << packetType << endl;
+			std::cout << "Unrecognized packet: " << packetType << std::endl;
 			break;
 		}
 		return true;
@@ -96,7 +109,7 @@ void ServerData::ClientHandlerThread(int ID) // index of the socket array
 		if (!serverPtr->processPacket(ID, packetType)) break;
 	}
 
-	cout << "Lost connection to client ID: " << ID << endl;
+	std::cout << "Lost connection to client ID: " << ID << std::endl;
 	closesocket(serverPtr->Connections[ID]);
 }
 
@@ -112,7 +125,7 @@ bool ServerData::getMessageSize(int ID, int & size)
 	int check = recv(Connections[ID], (char*)& size, sizeof(int), NULL);
 	if (check == SOCKET_ERROR)
 	{
-		cout << "Failed to get message size" << endl;
+		std::cout << "Failed to get message size" << std::endl;
 		return false;
 	}
 	return true;
@@ -130,14 +143,15 @@ bool ServerData::getPacketType(int ID, Packet & packetType)
 	int check = recv(Connections[ID], (char*)& packetType, sizeof(Packet), NULL);
 	if (check == SOCKET_ERROR)
 	{
-		cout << "Couldn't get type of the packet" << endl;
+		std::cout << "Couldn't get type of the packet" << std::endl;
 		return false;
 	}
-	cout << "Packet type: " << packetType << endl;
+	if (packetType == 0) std::cout << "Packet type: ChatMessage" << std::endl;
+
 	return true;
 }
 
-bool ServerData::sendMessage(int ID, string & message)
+bool ServerData::sendMessage(int ID, std::string & message)
 {
 	if (!sendPacketType(ID, pMessage)) return false;
 	int bufferLength = message.size();
@@ -148,12 +162,23 @@ bool ServerData::sendMessage(int ID, string & message)
 	else return true;
 }
 
-bool ServerData::getMessage(int ID, string & message)
+bool ServerData::sendConsoleMessage(int ID, std::string & message)
+{
+	if (!sendPacketType(ID, pConsole)) return false;
+	int bufferLength = message.size();
+	if (!sendMessageSize(ID, bufferLength)) return false;
+
+	int check = send(Connections[ID], message.c_str(), bufferLength, NULL);
+	if (check == SOCKET_ERROR) return false;
+	else return true;
+}
+
+bool ServerData::getMessage(int ID, std::string & message)
 {
 	int bufferLength;
 	if (!getMessageSize(ID, bufferLength))
 	{
-		cout << "Failed to get message" << endl;
+		std::cout << "Failed to get message" << std::endl;
 		return false;
 	}
 

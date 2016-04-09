@@ -6,19 +6,20 @@
 #include <iostream>
 #include <Winsock2.h>
 #include <string>
+#include <thread>
 
-using namespace std;
 
 enum Packet
 {
-	pMessage
+	pMessage,
+	pConsole
 };
 
 class ServerData
 {
 private:
 
-	SOCKET Connections[4]; // up to 4 players!
+	SOCKET Connections[3]; // up to 8 players!
 	int totalConnections = 0;
 	SOCKADDR_IN addr;
 	int addrLength = sizeof(addr);
@@ -31,8 +32,9 @@ private:
 	bool sendPacketType(int ID, Packet packetType);
 	bool getPacketType(int ID, Packet & packetType);
 
-	bool sendMessage(int ID, string & message);
-	bool getMessage(int ID, string & message);
+	bool sendMessage(int ID, std::string & message);
+	bool sendConsoleMessage(int ID, std::string & message);
+	bool getMessage(int ID, std::string & message);
 
 	bool processPacket(int ID, Packet packetType);
 
