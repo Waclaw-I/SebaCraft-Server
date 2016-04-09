@@ -7,6 +7,9 @@
 #include <Winsock2.h>
 #include <string>
 #include <thread>
+#include <vector>
+
+#include "Client.h"
 
 
 enum Packet
@@ -19,34 +22,37 @@ class ServerData
 {
 private:
 
-	SOCKET Connections[3]; // up to 8 players!
-	int totalConnections = 0;
+	int ConnectionLimit = 2; // up to n players!
+
+	static std::vector <Client *> ClientsArray;
+
 	SOCKADDR_IN addr;
 	int addrLength = sizeof(addr);
 	SOCKET sListen;
 
 
-	bool sendMessageSize(int ID, int size);
-	bool getMessageSize(int ID, int & size);
+	bool sendMessageSize(SOCKET & client, int size);
+	bool getMessageSize(SOCKET & client, int & size);
 
-	bool sendPacketType(int ID, Packet packetType);
-	bool getPacketType(int ID, Packet & packetType);
+	bool sendPacketType(SOCKET & client, Packet packetType);
+	bool getPacketType(SOCKET & client, Packet & packetType);
 
-	bool sendMessage(int ID, std::string & message);
-	bool sendConsoleMessage(int ID, std::string & message);
-	bool getMessage(int ID, std::string & message);
+	bool sendMessage(SOCKET & client, std::string & message);
+	bool sendConsoleMessage(SOCKET & client, std::string & message);
+	bool getMessage(SOCKET & client, std::string & message);
 
-	bool processPacket(int ID, Packet packetType);
+	bool processPacket(SOCKET & client, Packet packetType);
 
-	static void ClientHandlerThread(int ID);
+	static void ClientHandlerThread(Client & client);
 
 public:
 
 	ServerData(int port, bool usePublic);
 	
-	bool listenForNewConnection();
+	void listenForNewConnection();
 
-	int getTotalConnections();
+
+	
 };
 
 static ServerData * serverPtr;
