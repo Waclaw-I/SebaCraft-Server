@@ -104,6 +104,7 @@ bool ServerData::processPacket(SOCKET & client, Packet packetType)
 					std::cout << "Failed to send message from client: " << i << std::endl;
 				}
 			}
+			std::cout << message << std::endl;
 			//std::cout <<": " << message.substr(1, message.size() - 1) << std::endl; // we are displaying everything on the server console
 			break;
 		}
