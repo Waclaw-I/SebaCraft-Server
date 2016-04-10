@@ -15,7 +15,8 @@
 enum Packet
 {
 	pMessage,
-	pConsole
+	pConsole,
+	pInitialize
 };
 
 class ServerData
@@ -23,6 +24,8 @@ class ServerData
 private:
 
 	int ConnectionLimit = 2; // up to n players!
+
+	std::string nicknameInitializer;
 
 	static std::vector <Client *> ClientsArray;
 
@@ -50,6 +53,8 @@ public:
 	ServerData(int port, bool usePublic);
 	
 	void listenForNewConnection();
+	Client * initializeClient(SOCKET * socket);
+	void refuseToConnect();
 
 
 	

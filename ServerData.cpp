@@ -3,7 +3,7 @@
 #include <thread>
 
 std::vector <Client *> ServerData::ClientsArray;
-
+// constructor
 ServerData::ServerData(int port, bool usePublic)
 {
 	WSAData wsaData;
@@ -36,6 +36,29 @@ ServerData::ServerData(int port, bool usePublic)
 
 	serverPtr = this;
 
+} 
+// get elementary informations such as nickname and type of the ship and store it inside Client class object
+Client * ServerData::initializeClient(SOCKET * socket)
+{
+	Packet packetType;
+	if (!getPacketType(*socket, packetType)) std::cout << "No initialization packet received" << std::endl;
+	if (!processPacket(*socket, packetType)) std::cout << "Couldnt process initialization packet" << std::endl; // receiving init packet from new client
+
+	// LATER ON, WE LL PARSE THE DATA FROM INITIALIZER STRING IN ORDER TO GET ALL INFORMATIONS INSIDE THIS METHOD (nickname for now)
+	Client * newClient = new Client(nicknameInitializer, socket); // we create a new Client object which store such information as nick, id and socket
+
+	return newClient;
+} // 
+// if there is no more room, send this message and close the socket
+void ServerData::refuseToConnect()
+{
+	std::string message = "There is no room for more players on the server";
+	std::cout << "Connection denied. No more room for another player" << std::endl;
+	sendConsoleMessage(ClientsArray.back()->getSocket(), message);
+	//closesocket(ClientsArray.back()->getSocket()); // somethings wrong with the last message from server to client - trash
+
+	delete ClientsArray.back(); // this is working
+	ClientsArray.pop_back();
 }
 
 
@@ -43,23 +66,13 @@ void ServerData::listenForNewConnection()
 {
 	SOCKET * newConnection = new SOCKET; // we create a new socket dynamically
 	*newConnection = accept(sListen, (SOCKADDR*)&addr, &addrLength); // newest connection is stored inside
-	Client * newClient = new Client("dd", newConnection); // we create a new Client object which store such information as nick, id and socket
-	ClientsArray.push_back(newClient); // our pointer is now stored inside our vector of all active clients
+	
+	ClientsArray.push_back(initializeClient(newConnection)); // our pointer is now stored inside our vector of all active clients
 
-	if (newConnection == 0)
-	{
-		std::cout << "Failed to accept connection" << std::endl;
-	}
-	else if (ClientsArray.size() > ConnectionLimit) // IN CASE SOMEONE WOULD LIKE TO JOIN, BUT THERE IS ALREADY MAXIMUM AMOUNT OF PLAYERS
-	{
-		std::string message = "There is no room for more players on the server";
-		std::cout << "Connection denied. No more room for another player" << std::endl;
-		sendConsoleMessage(ClientsArray.back()->getSocket(), message);
-		//closesocket(ClientsArray.back()->getSocket()); // somethings wrong with the last message from server to client - trash
-
-		delete ClientsArray.back(); // this is working
-		ClientsArray.pop_back();
-	}
+	if (newConnection == 0) std::cout << "Failed to accept connection" << std::endl; // connecting was not successful
+	
+	else if (ClientsArray.size() > ConnectionLimit) refuseToConnect(); // IN CASE SOMEONE WOULD LIKE TO JOIN, BUT THERE IS ALREADY MAXIMUM AMOUNT OF PLAYERS
+	
 	else
 	{
 		std::cout << "Client Connected! Nickname: " << ClientsArray.back()->getNickname() << " ID: " << ClientsArray.back()->getId() << std::endl;
@@ -68,6 +81,7 @@ void ServerData::listenForNewConnection()
 
 		CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandlerThread, (LPVOID)(ClientsArray.back()), NULL, NULL); // this one needs a method being static in order to create a new thread
 		std::string welcomeMessage = "Welcome on SebaCraft Server!";
+		sendMessage(ClientsArray.back()->getSocket(), welcomeMessage); // a warm welcome message from the server. It ll be editable in the future
 	}
 }
 
@@ -80,10 +94,9 @@ bool ServerData::processPacket(SOCKET & client, Packet packetType)
 			std::string message;
 			if (!getMessage(client, message)) return false;
 
-			//message = std::to_string(ID) + message; // adding id in the first position to recognize player
-			
+			//message =  + message; // adding id in the first position to recognize player
 
-			for (int i = 0; i < ClientsArray.size(); i++)
+			for (int i = 0; i < ClientsArray.size(); i++) // SENDING TO OTHER PLAYERS
 			{
 				if (ClientsArray[i]->getSocket() == client) continue;
 				if (!sendMessage(ClientsArray[i]->getSocket(), message))
@@ -91,7 +104,13 @@ bool ServerData::processPacket(SOCKET & client, Packet packetType)
 					std::cout << "Failed to send message from client: " << i << std::endl;
 				}
 			}
-			std::cout <<": " << message.substr(1, message.size() - 1) << std::endl; // we are displaying everything on the server console
+			//std::cout <<": " << message.substr(1, message.size() - 1) << std::endl; // we are displaying everything on the server console
+			break;
+		}
+
+		case pInitialize:
+		{
+			if (!getMessage(client, nicknameInitializer)) return false; // we store received nickname (and other stuff later) in Initializer variable, which we use to create new Client dynamically
 			break;
 		}
 		default:
@@ -116,7 +135,7 @@ void ServerData::ClientHandlerThread(Client & client) // index of the socket arr
 	std::cout << "Lost connection to client ID: " << client.getId() << std::endl;
 	closesocket(client.getSocket());
 	int index;
-	for (int i = 0; i < ClientsArray.size(); i++)
+	for (int i = 0; i < ClientsArray.size(); i++) // find position of this client inside our list
 	{
 		if (ClientsArray[i]->getId() == client.getId())
 		{
@@ -127,10 +146,21 @@ void ServerData::ClientHandlerThread(Client & client) // index of the socket arr
 	ClientsArray.erase(ClientsArray.begin() + index);
 }
 
-bool ServerData::sendMessageSize(SOCKET & client, int size)
+
+// ##################GET INFORMATION METHODS######################
+
+bool ServerData::getPacketType(SOCKET & client, Packet & packetType)
 {
-	int check = send(client, (char*)& size, sizeof(int), NULL);
-	if (check == SOCKET_ERROR) return false;
+	int check = recv(client, (char*)& packetType, sizeof(Packet), NULL);
+	if (check == SOCKET_ERROR)
+	{
+		std::cout << "Couldn't get type of the packet" << std::endl;
+		return false;
+	}
+	if (packetType == 0) std::cout << "Packet type: ChatMessage" << std::endl;
+	if (packetType == 1) std::cout << "Packet type: ConsoleError" << std::endl;
+	if (packetType == 2) std::cout << "Packet type: Initializer" << std::endl;
+
 	return true;
 }
 
@@ -145,6 +175,30 @@ bool ServerData::getMessageSize(SOCKET & client, int & size)
 	return true;
 }
 
+bool ServerData::getMessage(SOCKET & client, std::string & message)
+{
+	int bufferLength;
+	if (!getMessageSize(client, bufferLength))
+	{
+		std::cout << "Failed to get message" << std::endl;
+		return false;
+	}
+
+	char * buffer = new char[bufferLength + 1];
+	buffer[bufferLength] = '\0';
+
+	int check = recv(client, buffer, bufferLength, NULL);
+	message = buffer;
+	delete[] buffer;
+
+	if (check == SOCKET_ERROR) return false;
+	return true;
+
+}
+
+
+// ##################SEND INFORMATION METHODS######################
+
 bool ServerData::sendPacketType(SOCKET & client, Packet packetType)
 {
 	int check = send(client, (char*)& packetType, sizeof(Packet), NULL);
@@ -152,16 +206,10 @@ bool ServerData::sendPacketType(SOCKET & client, Packet packetType)
 	else return true;
 }
 
-bool ServerData::getPacketType(SOCKET & client, Packet & packetType)
+bool ServerData::sendMessageSize(SOCKET & client, int size)
 {
-	int check = recv(client, (char*)& packetType, sizeof(Packet), NULL);
-	if (check == SOCKET_ERROR)
-	{
-		std::cout << "Couldn't get type of the packet" << std::endl;
-		return false;
-	}
-	if (packetType == 0) std::cout << "Packet type: ChatMessage" << std::endl;
-
+	int check = send(client, (char*)& size, sizeof(int), NULL);
+	if (check == SOCKET_ERROR) return false;
 	return true;
 }
 
@@ -187,23 +235,4 @@ bool ServerData::sendConsoleMessage(SOCKET & client, std::string & message)
 	else return true;
 }
 
-bool ServerData::getMessage(SOCKET & client, std::string & message)
-{
-	int bufferLength;
-	if (!getMessageSize(client, bufferLength))
-	{
-		std::cout << "Failed to get message" << std::endl;
-		return false;
-	}
 
-	char * buffer = new char[bufferLength + 1];
-	buffer[bufferLength] = '\0';
-
-	int check = recv(client, buffer, bufferLength, NULL);
-	message = buffer;
-	delete[] buffer;
-
-	if (check == SOCKET_ERROR) return false;
-	return true;
-
-}
