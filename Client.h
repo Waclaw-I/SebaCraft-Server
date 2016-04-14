@@ -2,26 +2,37 @@
 #include <Winsock2.h>
 #include <string>
 
+#include "ShipData.h"
+
 
 class Client
 {
+public:
+
+	Client(std::string nickname, int shipType, SOCKET * socket);
+	~Client();
+
+	void setNickname(std::string nickname);
+	void setSocket(SOCKET * mySocket);
+	void setShipType(int type);
+
+	std::string getNickname();
+	SOCKET & getSocket();
+	int getId();
+	int getShipType();
+
 
 private:
 	static int allTimeAmount;
 	static int actualAmount;
 	std::string nickname;
+	int shipType;
 	SOCKET * mySocket;
 	int id;
+	ShipData shipData;
 
-public:
+	// INFORMATIONS ABOUT SHIP POSITION AND ROTATION
 
-	Client(std::string nickname, SOCKET * socket);
-	~Client();
 
-	void setNickname(std::string nickname);
-	void setSocket(SOCKET * mySocket);
-
-	std::string getNickname();
-	SOCKET & getSocket();
-	int getId();
+	
 };

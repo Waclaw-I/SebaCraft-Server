@@ -45,7 +45,7 @@ Client * ServerData::initializeClient(SOCKET * socket)
 	if (!processPacket(*socket, packetType)) std::cout << "Couldnt process initialization packet" << std::endl; // receiving init packet from new client
 
 	// LATER ON, WE LL PARSE THE DATA FROM INITIALIZER STRING IN ORDER TO GET ALL INFORMATIONS INSIDE THIS METHOD (nickname for now)
-	Client * newClient = new Client(nicknameInitializer, socket); // we create a new Client object which store such information as nick, id and socket
+	Client * newClient = new Client(nickname, shipType, socket); // we create a new Client object which store such information as nick, id and socket
 
 	return newClient;
 } // 
@@ -77,11 +77,20 @@ void ServerData::listenForNewConnection()
 	{
 		std::cout << "Client Connected! Nickname: " << ClientsArray.back()->getNickname() << " ID: " << ClientsArray.back()->getId() << std::endl;
 
-		//std::thread newThread(&ServerData::ClientHandlerThread, &*this ,std::ref(*ClientsArray.back())); // this wont work. DUNNO
+		//std::thread newThread(&ServerData::ClientHandlerThread, &*this ,std::ref(*ClientsArray.back())); // this wont work. DUNNO WHY
 
 		CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandlerThread, (LPVOID)(ClientsArray.back()), NULL, NULL); // this one needs a method being static in order to create a new thread
 		std::string welcomeMessage = "Welcome on SebaCraft Server!";
-		sendMessage(ClientsArray.back()->getSocket(), welcomeMessage); // a warm welcome message from the server. It ll be editable in the future
+		for (int i = 0; i < ClientsArray.size(); i++)
+		{
+			if (ClientsArray[i]->getSocket() == ClientsArray.back()->getSocket()) sendMessage(ClientsArray.back()->getSocket(), welcomeMessage); // a warm welcome message from the server. It ll be editable in the future
+			else
+			{
+				std::string message = std::to_string(ClientsArray.back()->getShipType()) + ClientsArray.back()->getNickname() + "\t" + std::to_string(ClientsArray.back()->getId());
+				sendNewPlayerJoinedAlert(ClientsArray[i]->getSocket(), message); // we are sending information about new player to every one on the server
+			}
+
+		}
 	}
 }
 
@@ -111,9 +120,12 @@ bool ServerData::processPacket(SOCKET & client, Packet packetType)
 
 		case pInitialize:
 		{
-			if (!getMessage(client, nicknameInitializer)) return false; // we store received nickname (and other stuff later) in Initializer variable, which we use to create new Client dynamically
+			if (!getMessage(client, Initializer)) return false; // we store received nickname (and other stuff later) in Initializer variable, which we use to create new Client dynamically
+			shipType = atoi(Initializer.substr(0, 1).c_str()); // we are receiving both informations about ship model
+			nickname = Initializer.substr(1, Initializer.size() - 1); // and player nickname
 			break;
 		}
+
 		default:
 		{
 			std::cout << "Unrecognized packet: " << packetType << std::endl;
@@ -134,6 +146,7 @@ void ServerData::ClientHandlerThread(Client & client) // index of the socket arr
 	}
 
 	std::cout << "Lost connection to client ID: " << client.getId() << std::endl;
+	
 	closesocket(client.getSocket());
 	int index;
 	for (int i = 0; i < ClientsArray.size(); i++) // find position of this client inside our list
@@ -145,6 +158,10 @@ void ServerData::ClientHandlerThread(Client & client) // index of the socket arr
 		}
 	}
 	ClientsArray.erase(ClientsArray.begin() + index);
+	for (int i = 0; i < ClientsArray.size(); i++)
+	{
+		serverPtr->sendPlayerLeftAlert(ClientsArray[i]->getSocket(), std::to_string(client.getId()));
+	}
 }
 
 
@@ -228,6 +245,39 @@ bool ServerData::sendMessage(SOCKET & client, std::string & message)
 bool ServerData::sendConsoleMessage(SOCKET & client, std::string & message)
 {
 	if (!sendPacketType(client, pConsole)) return false;
+	int bufferLength = message.size();
+	if (!sendMessageSize(client, bufferLength)) return false;
+
+	int check = send(client, message.c_str(), bufferLength, NULL);
+	if (check == SOCKET_ERROR) return false;
+	else return true;
+}
+
+bool ServerData::sendNewPlayerJoinedAlert(SOCKET & client, std::string & message)
+{
+	if (!sendPacketType(client, pNewPlayer)) return false;
+	int bufferLength = message.size();
+	if (!sendMessageSize(client, bufferLength)) return false;
+
+	int check = send(client, message.c_str(), bufferLength, NULL);
+	if (check == SOCKET_ERROR) return false;
+	else return true;
+}
+
+bool ServerData::sendPlayerLeftAlert(SOCKET & client, std::string & message)
+{
+	if (!sendPacketType(client, pRemovePlayer)) return false;
+	int bufferLength = message.size();
+	if (!sendMessageSize(client, bufferLength)) return false;
+
+	int check = send(client, message.c_str(), bufferLength, NULL);
+	if (check == SOCKET_ERROR) return false;
+	else return true;
+}
+
+bool ServerData::sendInitialization(SOCKET & client, std::string & message)
+{
+	if (!sendPacketType(client, pInitialize)) return false;
 	int bufferLength = message.size();
 	if (!sendMessageSize(client, bufferLength)) return false;
 

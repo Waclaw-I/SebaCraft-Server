@@ -16,7 +16,9 @@ enum Packet
 {
 	pMessage,
 	pConsole,
-	pInitialize
+	pInitialize,
+	pNewPlayer,
+	pRemovePlayer
 };
 
 class ServerData
@@ -25,7 +27,9 @@ private:
 
 	int ConnectionLimit = 2; // up to n players!
 
-	std::string nicknameInitializer;
+	std::string Initializer;
+	std::string nickname; // we ll get this from Initializer string
+	int shipType; // along with information about chosen type of ship
 
 	static std::vector <Client *> ClientsArray;
 
@@ -42,6 +46,9 @@ private:
 
 	bool sendMessage(SOCKET & client, std::string & message);
 	bool sendConsoleMessage(SOCKET & client, std::string & message);
+	bool sendNewPlayerJoinedAlert(SOCKET & client, std::string & message);
+	bool sendPlayerLeftAlert(SOCKET & client, std::string & message);
+	bool sendInitialization(SOCKET & client, std::string & message);
 	bool getMessage(SOCKET & client, std::string & message);
 
 	bool processPacket(SOCKET & client, Packet packetType);
