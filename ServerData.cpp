@@ -83,7 +83,19 @@ void ServerData::listenForNewConnection()
 		std::string welcomeMessage = "Welcome on SebaCraft Server!";
 		for (int i = 0; i < ClientsArray.size(); i++)
 		{
-			if (ClientsArray[i]->getSocket() == ClientsArray.back()->getSocket()) sendMessage(ClientsArray.back()->getSocket(), welcomeMessage); // a warm welcome message from the server. It ll be editable in the future
+			if (ClientsArray[i]->getSocket() == ClientsArray.back()->getSocket())
+			{
+				sendMessage(ClientsArray.back()->getSocket(), welcomeMessage); // a warm welcome message from the server. It ll be editable in the future
+				// NOW WE NEED TO SEND INFORMATION ABOUT PLAYERS WHICH ARE ALREADY IN THE GAME
+				for (int j = 0; j < ClientsArray.size(); j++)
+				{
+					if (ClientsArray[j]->getSocket() != ClientsArray.back()->getSocket())
+					{
+						std::string message = std::to_string(ClientsArray[j]->getShipType()) + ClientsArray[j]->getNickname() + "\t" + std::to_string(ClientsArray[j]->getId());
+						sendNewPlayerJoinedAlert(ClientsArray.back()->getSocket(), message);// we are sending information to new player about every player already in the game
+					}
+				}
+			}
 			else
 			{
 				std::string message = std::to_string(ClientsArray.back()->getShipType()) + ClientsArray.back()->getNickname() + "\t" + std::to_string(ClientsArray.back()->getId());
