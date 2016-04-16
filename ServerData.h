@@ -18,14 +18,15 @@ enum Packet
 	pConsole,
 	pInitialize,
 	pNewPlayer,
-	pRemovePlayer
+	pRemovePlayer,
+	pPosition
 };
 
 class ServerData
 {
 private:
 
-	int ConnectionLimit = 2; // up to n players!
+	int ConnectionLimit = 5; // up to n players!
 
 	std::string Initializer;
 	std::string nickname; // we ll get this from Initializer string
@@ -49,11 +50,13 @@ private:
 	bool sendNewPlayerJoinedAlert(SOCKET & client, std::string & message);
 	bool sendPlayerLeftAlert(SOCKET & client, std::string & message);
 	bool sendInitialization(SOCKET & client, std::string & message);
+	bool sendPlayersPosition(SOCKET & client, std::string & message);
 	bool getMessage(SOCKET & client, std::string & message);
 
-	bool processPacket(SOCKET & client, Packet packetType);
+	bool processPacket(Client & client, Packet packetType);
 
-	static void ClientHandlerThread(Client & client);
+	static void GetDataFromClient(Client & client);
+	static void SendDataToClient(Client & client);
 
 public:
 

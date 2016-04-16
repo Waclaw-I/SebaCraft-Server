@@ -42,7 +42,17 @@ Client * ServerData::initializeClient(SOCKET * socket)
 {
 	Packet packetType;
 	if (!getPacketType(*socket, packetType)) std::cout << "No initialization packet received" << std::endl;
-	if (!processPacket(*socket, packetType)) std::cout << "Couldnt process initialization packet" << std::endl; // receiving init packet from new client
+	// IT NEEDS TO BE DONE THIS WAY BECAUSE WE ARE NOW CREATING CLIENT OBJECT AND PROCESS_PACKET HAS THE CLIENT ARGUMENT
+	switch (packetType)
+	{
+	case pInitialize: //receiving init packet from new client
+	{
+		if (!getMessage(*socket, Initializer)) return false; // we store received nickname (and other stuff later) in Initializer variable, which we use to create new Client dynamically
+		shipType = atoi(Initializer.substr(0, 1).c_str()); // we are receiving both informations about ship model
+		nickname = Initializer.substr(1, Initializer.size() - 1); // and player nickname
+		break;
+	}
+	}
 
 	// LATER ON, WE LL PARSE THE DATA FROM INITIALIZER STRING IN ORDER TO GET ALL INFORMATIONS INSIDE THIS METHOD (nickname for now)
 	Client * newClient = new Client(nickname, shipType, socket); // we create a new Client object which store such information as nick, id and socket
@@ -77,9 +87,12 @@ void ServerData::listenForNewConnection()
 	{
 		std::cout << "Client Connected! Nickname: " << ClientsArray.back()->getNickname() << " ID: " << ClientsArray.back()->getId() << std::endl;
 
-		//std::thread newThread(&ServerData::ClientHandlerThread, &*this ,std::ref(*ClientsArray.back())); // this wont work. DUNNO WHY
+		std::thread getDataThread(&GetDataFromClient, *ClientsArray.back());
+		getDataThread.detach();
+		std::thread sendDataThread(&SendDataToClient, *ClientsArray.back());
+		sendDataThread.detach();
 
-		CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandlerThread, (LPVOID)(ClientsArray.back()), NULL, NULL); // this one needs a method being static in order to create a new thread
+		//CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GetDataFromClient, (LPVOID)(ClientsArray.back()), NULL, NULL); // this one needs a method being static in order to create a new thread
 		std::string welcomeMessage = "Welcome on SebaCraft Server!";
 		for (int i = 0; i < ClientsArray.size(); i++)
 		{
@@ -106,20 +119,20 @@ void ServerData::listenForNewConnection()
 	}
 }
 
-bool ServerData::processPacket(SOCKET & client, Packet packetType)
+bool ServerData::processPacket(Client & client, Packet packetType)
 {
 	switch (packetType)
 	{
 		case pMessage:
 		{
 			std::string message;
-			if (!getMessage(client, message)) return false;
+			if (!getMessage(client.getSocket(), message)) return false;
 
 			//message =  + message; // adding id in the first position to recognize player
 
 			for (int i = 0; i < ClientsArray.size(); i++) // SENDING TO OTHER PLAYERS
 			{
-				if (ClientsArray[i]->getSocket() == client) continue;
+				if (ClientsArray[i]->getSocket() == client.getSocket()) continue;
 				if (!sendMessage(ClientsArray[i]->getSocket(), message))
 				{
 					std::cout << "Failed to send message from client: " << i << std::endl;
@@ -132,10 +145,29 @@ bool ServerData::processPacket(SOCKET & client, Packet packetType)
 
 		case pInitialize:
 		{
-			if (!getMessage(client, Initializer)) return false; // we store received nickname (and other stuff later) in Initializer variable, which we use to create new Client dynamically
+			if (!getMessage(client.getSocket(), Initializer)) return false; // we store received nickname (and other stuff later) in Initializer variable, which we use to create new Client dynamically
 			shipType = atoi(Initializer.substr(0, 1).c_str()); // we are receiving both informations about ship model
 			nickname = Initializer.substr(1, Initializer.size() - 1); // and player nickname
 			break;
+		}
+
+		case pPosition: // REVEIVING INFORMATION FROM CLIENT ABOUT HIS SHIP POSITION AND ROTATION
+		{
+			std::string position;
+			if (!getMessage(client.getSocket(), position)) return false;
+			int xParserPos = position.find("X");
+			int yParserPos = position.find("Y");
+			int rParserPos = position.find("R");
+
+			double positionX = atof(position.substr(0, xParserPos ).c_str());
+			double positionY = atof(position.substr(yParserPos + 1, yParserPos - xParserPos - 1).c_str());
+			double rotation = atof(position.substr(yParserPos + 1, rParserPos - yParserPos - 1).c_str());
+
+			client.getShipData().setPositionX(positionX);
+			client.getShipData().setPositionY(positionY);
+			client.getShipData().setRotation(rotation);
+			break;
+	
 		}
 
 		default:
@@ -146,15 +178,30 @@ bool ServerData::processPacket(SOCKET & client, Packet packetType)
 		return true;
 	}
 }
-
-void ServerData::ClientHandlerThread(Client & client) // index of the socket array
+void ServerData::SendDataToClient(Client & client)
+{
+	while (true)
+	{
+		for (int i = 0; i < ClientsArray.size(); i++)
+		{
+			if (ClientsArray[i] != &client)
+			{
+				//std::string position = std::to_string(ClientsArray[i]->getId()) + "X" + std::to_string(ClientsArray[i]->getShipData().getPositionX())
+				//	+ "Y" + std::to_string(ClientsArray[i]->getShipData().getPositionY()) + "R" + std::to_string(ClientsArray[i]->getShipData().getRotation());
+				//serverPtr->sendPlayersPosition(client.getSocket(), position);
+				std::cout << ClientsArray.size() << std::endl;
+			}
+		}
+	}
+}
+void ServerData::GetDataFromClient(Client & client) // index of the socket array
 {
 	Packet packetType;
 
 	while (true)
 	{
 		if (!serverPtr->getPacketType(client.getSocket(), packetType)) break;
-		if (!serverPtr->processPacket(client.getSocket(), packetType)) break;
+		if (!serverPtr->processPacket(client, packetType)) break;
 	}
 
 	std::cout << "Lost connection to client ID: " << client.getId() << std::endl;
@@ -290,6 +337,17 @@ bool ServerData::sendPlayerLeftAlert(SOCKET & client, std::string & message)
 bool ServerData::sendInitialization(SOCKET & client, std::string & message)
 {
 	if (!sendPacketType(client, pInitialize)) return false;
+	int bufferLength = message.size();
+	if (!sendMessageSize(client, bufferLength)) return false;
+
+	int check = send(client, message.c_str(), bufferLength, NULL);
+	if (check == SOCKET_ERROR) return false;
+	else return true;
+}
+
+bool ServerData::sendPlayersPosition(SOCKET & client, std::string & message)
+{
+	if (!sendPacketType(client, pPosition)) return false;
 	int bufferLength = message.size();
 	if (!sendMessageSize(client, bufferLength)) return false;
 

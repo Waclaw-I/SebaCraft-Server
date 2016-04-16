@@ -14,11 +14,13 @@ SOCKET & Client::getSocket() { return *this->mySocket; }
 int Client::getId() { return this->id; }
 int Client::getShipType() { return this->shipType; }
 
+ShipData & Client::getShipData() { return this->shipData; }
+
 Client::Client(std::string nickname, int shipType, SOCKET * socket)
 {
-	setNickname(nickname);
-	setSocket(socket);
-	setShipType(shipType);
+	this->nickname = nickname;
+	this->mySocket = socket;
+	this->shipType = shipType;
 	id = allTimeAmount++;
 	actualAmount++;
 

@@ -21,6 +21,8 @@ public:
 	int getId();
 	int getShipType();
 
+	ShipData & getShipData();
+
 
 private:
 	static int allTimeAmount;
