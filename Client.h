@@ -21,10 +21,14 @@ public:
 	int getId();
 	int getShipType();
 
+	bool getSendingReceiving();
+	void setSendingReceiving(bool state);
+
 	ShipData & getShipData();
 
 
 private:
+	bool sendingReceiving;
 	static int allTimeAmount;
 	static int actualAmount;
 	std::string nickname;

@@ -54,7 +54,7 @@ Client * ServerData::initializeClient(SOCKET * socket)
 	}
 	}
 
-	// LATER ON, WE LL PARSE THE DATA FROM INITIALIZER STRING IN ORDER TO GET ALL INFORMATIONS INSIDE THIS METHOD (nickname for now)
+	// LATER ON, WE LL PARSE THE DATA FROM INITIALIZER STRING IN ORDER TO GET ALL INFORMATIONS INSIDE THIS METHOD
 	Client * newClient = new Client(nickname, shipType, socket); // we create a new Client object which store such information as nick, id and socket
 
 	return newClient;
@@ -87,12 +87,9 @@ void ServerData::listenForNewConnection()
 	{
 		std::cout << "Client Connected! Nickname: " << ClientsArray.back()->getNickname() << " ID: " << ClientsArray.back()->getId() << std::endl;
 
-		std::thread getDataThread(&GetDataFromClient, *ClientsArray.back());
-		getDataThread.detach();
-		std::thread sendDataThread(&SendDataToClient, *ClientsArray.back());
-		sendDataThread.detach();
+		
+		
 
-		//CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GetDataFromClient, (LPVOID)(ClientsArray.back()), NULL, NULL); // this one needs a method being static in order to create a new thread
 		std::string welcomeMessage = "Welcome on SebaCraft Server!";
 		for (int i = 0; i < ClientsArray.size(); i++)
 		{
@@ -116,6 +113,12 @@ void ServerData::listenForNewConnection()
 			}
 
 		}
+		std::cout << "Uruchamiam watki dla gracza " << ClientsArray.back()->getNickname() << std::endl;
+		std::cout << "Stan jest rowny: " << ClientsArray.back()->getSendingReceiving() << std::endl;
+		std::thread getDataThread(&GetDataFromClient, std::ref(*ClientsArray.back()));
+		getDataThread.detach();
+		std::thread sendDataThread(&SendDataToClient, std::ref(*ClientsArray.back()));
+		sendDataThread.detach();
 	}
 }
 
@@ -128,8 +131,6 @@ bool ServerData::processPacket(Client & client, Packet packetType)
 			std::string message;
 			if (!getMessage(client.getSocket(), message)) return false;
 
-			//message =  + message; // adding id in the first position to recognize player
-
 			for (int i = 0; i < ClientsArray.size(); i++) // SENDING TO OTHER PLAYERS
 			{
 				if (ClientsArray[i]->getSocket() == client.getSocket()) continue;
@@ -139,7 +140,6 @@ bool ServerData::processPacket(Client & client, Packet packetType)
 				}
 			}
 			std::cout << message << std::endl;
-			//std::cout <<": " << message.substr(1, message.size() - 1) << std::endl; // we are displaying everything on the server console
 			break;
 		}
 
@@ -175,34 +175,45 @@ bool ServerData::processPacket(Client & client, Packet packetType)
 			std::cout << "Unrecognized packet: " << packetType << std::endl;
 			break;
 		}
-		return true;
+		
+		
 	}
+	return true;
 }
 void ServerData::SendDataToClient(Client & client)
 {
 	while (true)
 	{
-		for (int i = 0; i < ClientsArray.size(); i++)
-		{
-			if (ClientsArray[i] != &client)
+		//if (!client.getSendingReceiving())
+		//{
+			for (int i = 0; i < ClientsArray.size(); i++)
 			{
-				//std::string position = std::to_string(ClientsArray[i]->getId()) + "X" + std::to_string(ClientsArray[i]->getShipData().getPositionX())
-				//	+ "Y" + std::to_string(ClientsArray[i]->getShipData().getPositionY()) + "R" + std::to_string(ClientsArray[i]->getShipData().getRotation());
-				//serverPtr->sendPlayersPosition(client.getSocket(), position);
-				std::cout << ClientsArray.size() << std::endl;
+				if (ClientsArray[i]->getId() != client.getId())
+				{
+					std::string position = std::to_string(ClientsArray[i]->getId()) + "X" + std::to_string(ClientsArray[i]->getShipData().getPositionX())
+						+ "Y" + std::to_string(ClientsArray[i]->getShipData().getPositionY()) + "R" + std::to_string(ClientsArray[i]->getShipData().getRotation());
+					serverPtr->sendPlayersPosition(client.getSocket(), position);
+				}
 			}
-		}
+			//client.setSendingReceiving(true);
+		//}
+		
 	}
 }
 void ServerData::GetDataFromClient(Client & client) // index of the socket array
 {
 	Packet packetType;
-
 	while (true)
 	{
-		if (!serverPtr->getPacketType(client.getSocket(), packetType)) break;
-		if (!serverPtr->processPacket(client, packetType)) break;
+		//if (client.getSendingReceiving())
+		//{
+			if (!serverPtr->getPacketType(client.getSocket(), packetType)) break;
+			if (!serverPtr->processPacket(client, packetType)) break;
+			//client.setSendingReceiving(false);
+		//}
 	}
+
+
 
 	std::cout << "Lost connection to client ID: " << client.getId() << std::endl;
 	
