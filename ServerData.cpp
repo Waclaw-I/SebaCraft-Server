@@ -103,6 +103,8 @@ void ServerData::listenForNewConnection()
 					{
 						std::string message = std::to_string(ClientsArray[j]->getShipType()) + ClientsArray[j]->getNickname() + "\t" + std::to_string(ClientsArray[j]->getId());
 						sendNewPlayerJoinedAlert(ClientsArray.back()->getSocket(), message);// we are sending information to new player about every player already in the game
+						ClientsArray.back()->getClientsArray().push_back(ClientsArray[j]); // we are filling up private array of clients of every client
+						std::cout << "WIELKOSC WEWNETRZNEJ TABLICY: " << ClientsArray.back()->getClientsArray().size() << std::endl;
 					}
 				}
 			}
@@ -110,11 +112,16 @@ void ServerData::listenForNewConnection()
 			{
 				std::string message = std::to_string(ClientsArray.back()->getShipType()) + ClientsArray.back()->getNickname() + "\t" + std::to_string(ClientsArray.back()->getId());
 				sendNewPlayerJoinedAlert(ClientsArray[i]->getSocket(), message); // we are sending information about new player to every one on the server
+				ClientsArray[i]->getClientsArray().push_back(ClientsArray.back());
 			}
-
 		}
+
+		for (int i = 0; i < ClientsArray.size(); i++)
+		{
+			std::cout << ClientsArray[i]->getId() << " Wielkosc wewnetrznej tablicy: " << ClientsArray[i]->getClientsArray().size() << std::endl;
+		}
+
 		std::cout << "Uruchamiam watki dla gracza " << ClientsArray.back()->getNickname() << std::endl;
-		std::cout << "Stan jest rowny: " << ClientsArray.back()->getSendingReceiving() << std::endl;
 		std::thread getDataThread(&GetDataFromClient, std::ref(*ClientsArray.back()));
 		getDataThread.detach();
 		std::thread sendDataThread(&SendDataToClient, std::ref(*ClientsArray.back()));
@@ -173,6 +180,7 @@ bool ServerData::processPacket(Client & client, Packet packetType)
 		default:
 		{
 			std::cout << "Unrecognized packet: " << packetType << std::endl;
+			return false;
 			break;
 		}
 		
@@ -184,20 +192,20 @@ void ServerData::SendDataToClient(Client & client)
 {
 	while (true)
 	{
-		//if (!client.getSendingReceiving())
-		//{
-			for (int i = 0; i < ClientsArray.size(); i++)
+			for (int i = 0; i < client.getClientsArray().size(); i++)
 			{
-				if (ClientsArray[i]->getId() != client.getId())
+				
+				if (client.getClientsArray()[i]->getId() != client.getId())
 				{
-					std::string position = std::to_string(ClientsArray[i]->getId()) + "X" + std::to_string(ClientsArray[i]->getShipData().getPositionX())
-						+ "Y" + std::to_string(ClientsArray[i]->getShipData().getPositionY()) + "R" + std::to_string(ClientsArray[i]->getShipData().getRotation());
+					std::string position = std::to_string(client.getClientsArray()[i]->getId()) + "X" + std::to_string(client.getClientsArray()[i]->getShipData().getPositionX())
+						+ "Y" + std::to_string(client.getClientsArray()[i]->getShipData().getPositionY()) + "R" + std::to_string(client.getClientsArray()[i]->getShipData().getRotation());
 					serverPtr->sendPlayersPosition(client.getSocket(), position);
+					std::cout << position << std::endl;
 				}
+				
 			}
-			//client.setSendingReceiving(true);
-		//}
-		
+			Sleep(10);
+
 	}
 }
 void ServerData::GetDataFromClient(Client & client) // index of the socket array
@@ -205,12 +213,8 @@ void ServerData::GetDataFromClient(Client & client) // index of the socket array
 	Packet packetType;
 	while (true)
 	{
-		//if (client.getSendingReceiving())
-		//{
 			if (!serverPtr->getPacketType(client.getSocket(), packetType)) break;
 			if (!serverPtr->processPacket(client, packetType)) break;
-			//client.setSendingReceiving(false);
-		//}
 	}
 
 
@@ -228,9 +232,21 @@ void ServerData::GetDataFromClient(Client & client) // index of the socket array
 		}
 	}
 	ClientsArray.erase(ClientsArray.begin() + index);
+
+	//TODO: SPRAWDZIC, CZY TO DOBRZE DZIALA!!!
 	for (int i = 0; i < ClientsArray.size(); i++)
 	{
+		int innerIndex;
 		serverPtr->sendPlayerLeftAlert(ClientsArray[i]->getSocket(), std::to_string(client.getId()));
+		for (int j = 0; j < ClientsArray[i]->getClientsArray().size(); j++)
+		{
+			if (ClientsArray[i]->getClientsArray()[j]->getId() == client.getId())
+			{
+				innerIndex = i;
+				break;
+			}
+			ClientsArray[i]->getClientsArray().erase(ClientsArray[i]->getClientsArray().begin() + innerIndex);
+		}
 	}
 }
 

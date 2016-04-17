@@ -1,6 +1,7 @@
 #pragma once
 #include <Winsock2.h>
 #include <string>
+#include <vector>
 
 #include "ShipData.h"
 
@@ -16,19 +17,19 @@ public:
 	void setSocket(SOCKET * mySocket);
 	void setShipType(int type);
 
+	std::vector<Client *> & getClientsArray();
+
+
 	std::string getNickname();
 	SOCKET & getSocket();
 	int getId();
 	int getShipType();
 
-	bool getSendingReceiving();
-	void setSendingReceiving(bool state);
 
 	ShipData & getShipData();
 
 
 private:
-	bool sendingReceiving;
 	static int allTimeAmount;
 	static int actualAmount;
 	std::string nickname;
@@ -36,6 +37,7 @@ private:
 	SOCKET * mySocket;
 	int id;
 	ShipData shipData;
+	std::vector <Client *> clientsArray;
 
 	// INFORMATIONS ABOUT SHIP POSITION AND ROTATION
 
