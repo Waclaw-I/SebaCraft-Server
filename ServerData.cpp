@@ -104,7 +104,6 @@ void ServerData::listenForNewConnection()
 						std::string message = std::to_string(ClientsArray[j]->getShipType()) + ClientsArray[j]->getNickname() + "\t" + std::to_string(ClientsArray[j]->getId());
 						sendNewPlayerJoinedAlert(ClientsArray.back()->getSocket(), message);// we are sending information to new player about every player already in the game
 						ClientsArray.back()->getClientsArray().push_back(ClientsArray[j]); // we are filling up private array of clients of every client
-						std::cout << "WIELKOSC WEWNETRZNEJ TABLICY: " << ClientsArray.back()->getClientsArray().size() << std::endl;
 					}
 				}
 			}
@@ -116,10 +115,6 @@ void ServerData::listenForNewConnection()
 			}
 		}
 
-		for (int i = 0; i < ClientsArray.size(); i++)
-		{
-			std::cout << ClientsArray[i]->getId() << " Wielkosc wewnetrznej tablicy: " << ClientsArray[i]->getClientsArray().size() << std::endl;
-		}
 
 		std::cout << "Uruchamiam watki dla gracza " << ClientsArray.back()->getNickname() << std::endl;
 		std::thread getDataThread(&GetDataFromClient, std::ref(*ClientsArray.back()));
@@ -167,7 +162,7 @@ bool ServerData::processPacket(Client & client, Packet packetType)
 			int rParserPos = position.find("R");
 
 			double positionX = atof(position.substr(0, xParserPos ).c_str());
-			double positionY = atof(position.substr(yParserPos + 1, yParserPos - xParserPos - 1).c_str());
+			double positionY = atof(position.substr(xParserPos + 1, yParserPos - xParserPos - 1).c_str());
 			double rotation = atof(position.substr(yParserPos + 1, rParserPos - yParserPos - 1).c_str());
 
 			client.getShipData().setPositionX(positionX);
@@ -200,7 +195,6 @@ void ServerData::SendDataToClient(Client & client)
 					std::string position = std::to_string(client.getClientsArray()[i]->getId()) + "X" + std::to_string(client.getClientsArray()[i]->getShipData().getPositionX())
 						+ "Y" + std::to_string(client.getClientsArray()[i]->getShipData().getPositionY()) + "R" + std::to_string(client.getClientsArray()[i]->getShipData().getRotation());
 					serverPtr->sendPlayersPosition(client.getSocket(), position);
-					std::cout << position << std::endl;
 				}
 				
 			}
