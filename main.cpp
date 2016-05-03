@@ -10,7 +10,6 @@ using namespace std;
 
 int main()
 {
-
-	ServerData myServer(33355, false);
+	ServerData myServer(33355, true);
 	while(true) myServer.listenForNewConnection();
 }

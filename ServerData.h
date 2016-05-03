@@ -24,6 +24,18 @@ enum Packet
 
 class ServerData
 {
+
+public:
+
+	ServerData(int port, bool usePublic);
+
+	static bool isClientsArrayChanging();
+	static void setClientsArrayIsChanging(bool state);
+
+	void listenForNewConnection();
+	Client * initializeClient(SOCKET * socket);
+	void refuseToConnect();
+
 private:
 
 	int ConnectionLimit = 5; // up to n players!
@@ -33,6 +45,7 @@ private:
 	int shipType; // along with information about chosen type of ship
 
 	static std::vector <Client *> ClientsArray;
+	static bool ClientsArrayIsChanging;
 
 	SOCKADDR_IN addr;
 	int addrLength = sizeof(addr);
@@ -58,16 +71,7 @@ private:
 	static void GetDataFromClient(Client & client);
 	static void SendDataToClient(Client & client);
 
-public:
 
-	ServerData(int port, bool usePublic);
-	
-	void listenForNewConnection();
-	Client * initializeClient(SOCKET * socket);
-	void refuseToConnect();
-
-
-	
 };
 
 static ServerData * serverPtr;

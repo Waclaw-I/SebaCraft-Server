@@ -3,6 +3,10 @@
 #include <thread>
 
 std::vector <Client *> ServerData::ClientsArray;
+bool ServerData::ClientsArrayIsChanging = false;
+
+bool ServerData::isClientsArrayChanging() { return ClientsArrayIsChanging; }
+void ServerData::setClientsArrayIsChanging(bool state) { ClientsArrayIsChanging = state; }
 // constructor
 ServerData::ServerData(int port, bool usePublic)
 {
@@ -17,7 +21,8 @@ ServerData::ServerData(int port, bool usePublic)
 	if (usePublic) // server is open to public
 		addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	else // we are using localhost
-		addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+		//addr.sin_addr.s_addr = inet_addr("25.0.252.153");
+		  addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
 	addr.sin_port = htons(port);
 	addr.sin_family = AF_INET;
@@ -153,6 +158,14 @@ bool ServerData::processPacket(Client & client, Packet packetType)
 			break;
 		}
 
+		case pRemovePlayer:
+		{
+			std::string msg;
+			if (!getMessage(client.getSocket(), msg)) return false;
+			client.setOnline(false);
+			std::cout << "PLAYER " << client.getNickname() << " HAS LEFT THE GAME" << std::endl;
+		}
+
 		case pPosition: // REVEIVING INFORMATION FROM CLIENT ABOUT HIS SHIP POSITION AND ROTATION
 		{
 			std::string position;
@@ -183,35 +196,53 @@ bool ServerData::processPacket(Client & client, Packet packetType)
 	}
 	return true;
 }
-void ServerData::SendDataToClient(Client & client)
+void ServerData::SendDataToClient(Client & client) // SENDING THREAD
 {
-	while (true)
+	int failedPackets = 0;
+	while (client.isOnline() && failedPackets < 1000)
 	{
+		if (isClientsArrayChanging() == false)
+		{
 			for (int i = 0; i < client.getClientsArray().size(); i++)
 			{
-				
+
 				if (client.getClientsArray()[i]->getId() != client.getId())
 				{
-					std::string position = std::to_string(client.getClientsArray()[i]->getId()) + "X" + std::to_string(client.getClientsArray()[i]->getShipData().getPositionX())
-						+ "Y" + std::to_string(client.getClientsArray()[i]->getShipData().getPositionY()) + "R" + std::to_string(client.getClientsArray()[i]->getShipData().getRotation());
-					serverPtr->sendPlayersPosition(client.getSocket(), position);
-				}
-				
-			}
-			Sleep(10);
+					std::string position = std::to_string(client.getClientsArray()[i]->getId()) + "X"
+						+ std::to_string(client.getClientsArray()[i]->getShipData().getPositionX())
+						+ "Y" + std::to_string(client.getClientsArray()[i]->getShipData().getPositionY())
+						+ "R" + std::to_string(client.getClientsArray()[i]->getShipData().getRotation());
 
+					if (!serverPtr->sendPlayersPosition(client.getSocket(), position))
+					{
+						failedPackets++;
+					}
+				}
+
+			}
+			Sleep(16);
+		}
 	}
 }
-void ServerData::GetDataFromClient(Client & client) // index of the socket array
+void ServerData::GetDataFromClient(Client & client) // RECEIVING THREAD
 {
 	Packet packetType;
-	while (true)
+	int failedPackets = 0; // if there is a problem with client, he ll be disconnected
+	while (client.isOnline() && failedPackets < 1000)
 	{
-			if (!serverPtr->getPacketType(client.getSocket(), packetType)) break;
-			if (!serverPtr->processPacket(client, packetType)) break;
+		if (!serverPtr->getPacketType(client.getSocket(), packetType))
+		{
+			std::cout << "Failed to get packet from: " << client.getId() << std::endl;
+			failedPackets++;
+		}
+		if (!serverPtr->processPacket(client, packetType))
+		{
+			std::cout << "Failed to process packet from: " << client.getId() << std::endl;
+			failedPackets++;
+		}
 	}
 
-
+	setClientsArrayIsChanging(true);
 
 	std::cout << "Lost connection to client ID: " << client.getId() << std::endl;
 	
@@ -227,21 +258,30 @@ void ServerData::GetDataFromClient(Client & client) // index of the socket array
 	}
 	ClientsArray.erase(ClientsArray.begin() + index);
 
-	//TODO: SPRAWDZIC, CZY TO DOBRZE DZIALA!!!
+	//for (int i = 0; i < ClientsArray.size(); i++)
+	//{
+	//	std::cout << "Klient: " << ClientsArray[i]->getNickname() << std::endl;
+	//	for (int j = 0; j < ClientsArray[i]->getClientsArray().size(); j++)
+	//	{
+	//		std::cout << ClientsArray[i]->getClientsArray()[j]->getNickname() << std::endl;
+	//	}
+	//}
+
 	for (int i = 0; i < ClientsArray.size(); i++)
 	{
-		int innerIndex;
+		int innerIndex = 0;
 		serverPtr->sendPlayerLeftAlert(ClientsArray[i]->getSocket(), std::to_string(client.getId()));
 		for (int j = 0; j < ClientsArray[i]->getClientsArray().size(); j++)
 		{
 			if (ClientsArray[i]->getClientsArray()[j]->getId() == client.getId())
 			{
-				innerIndex = i;
-				break;
+				innerIndex = j;
 			}
-			ClientsArray[i]->getClientsArray().erase(ClientsArray[i]->getClientsArray().begin() + innerIndex);
 		}
+		ClientsArray[i]->getClientsArray().erase(ClientsArray[i]->getClientsArray().begin() + innerIndex);
 	}
+
+	setClientsArrayIsChanging(false);
 }
 
 

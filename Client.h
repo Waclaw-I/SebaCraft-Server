@@ -16,6 +16,7 @@ public:
 	void setNickname(std::string nickname);
 	void setSocket(SOCKET * mySocket);
 	void setShipType(int type);
+	void setOnline(bool state);
 
 	std::vector<Client *> & getClientsArray();
 
@@ -24,6 +25,7 @@ public:
 	SOCKET & getSocket();
 	int getId();
 	int getShipType();
+	bool isOnline();
 
 
 	ShipData & getShipData();
@@ -38,6 +40,8 @@ private:
 	int id;
 	ShipData shipData;
 	std::vector <Client *> clientsArray;
+
+	bool Online;
 
 	// INFORMATIONS ABOUT SHIP POSITION AND ROTATION
 
