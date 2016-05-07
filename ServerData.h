@@ -10,17 +10,8 @@
 #include <vector>
 
 #include "Client.h"
+#include "Communicator.h"
 
-
-enum Packet
-{
-	pMessage,
-	pConsole,
-	pInitialize,
-	pNewPlayer,
-	pRemovePlayer,
-	pPosition
-};
 
 class ServerData
 {
@@ -38,6 +29,8 @@ public:
 
 private:
 
+	Communicator * communicator;
+
 	int ConnectionLimit = 5; // up to n players!
 
 	std::string Initializer;
@@ -47,24 +40,8 @@ private:
 	static std::vector <Client *> ClientsArray;
 	static bool ClientsArrayIsChanging;
 
-	SOCKADDR_IN addr;
-	int addrLength = sizeof(addr);
-	SOCKET sListen;
 
 
-	bool sendMessageSize(SOCKET & client, int size);
-	bool getMessageSize(SOCKET & client, int & size);
-
-	bool sendPacketType(SOCKET & client, Packet packetType);
-	bool getPacketType(SOCKET & client, Packet & packetType);
-
-	bool sendMessage(SOCKET & client, std::string & message);
-	bool sendConsoleMessage(SOCKET & client, std::string & message);
-	bool sendNewPlayerJoinedAlert(SOCKET & client, std::string & message);
-	bool sendPlayerLeftAlert(SOCKET & client, std::string & message);
-	bool sendInitialization(SOCKET & client, std::string & message);
-	bool sendPlayersPosition(SOCKET & client, std::string & message);
-	bool getMessage(SOCKET & client, std::string & message);
 
 	bool processPacket(Client & client, Packet packetType);
 
