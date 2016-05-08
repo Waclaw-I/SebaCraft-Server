@@ -166,7 +166,8 @@ bool ServerData::processPacket(Client & client, Packet packetType)
 			std::string bulletInformation;
 			if (!communicator->getMessage(client.getSocket(), bulletInformation)) return false;
 
-			// TODO: ADD INFORMATION OF WHICH PLAYER SHOT WAS IT
+			bulletInformation = std::to_string(client.getId()) + "I" + bulletInformation;
+
 			for (int i = 0; i < ClientsArray.size(); i++) // SENDING TO OTHER PLAYERS
 			{
 				if (ClientsArray[i]->getSocket() == client.getSocket()) continue;
