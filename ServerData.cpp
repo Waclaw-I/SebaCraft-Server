@@ -161,6 +161,23 @@ bool ServerData::processPacket(Client & client, Packet packetType)
 	
 		}
 
+		case pBullet: // RETRIEVING INFORMATION FROM CLIENT ABOUT CREATED BULLET
+		{
+			std::string bulletInformation;
+			if (!communicator->getMessage(client.getSocket(), bulletInformation)) return false;
+
+			// TODO: ADD INFORMATION OF WHICH PLAYER SHOT WAS IT
+			for (int i = 0; i < ClientsArray.size(); i++) // SENDING TO OTHER PLAYERS
+			{
+				if (ClientsArray[i]->getSocket() == client.getSocket()) continue;
+				if (!communicator->sendBulletInformation(ClientsArray[i]->getSocket(), bulletInformation))
+				{
+					std::cout << "Failed to send bulletInformation from client: " << i << std::endl;
+				}
+			}
+			break;
+		}
+
 		default:
 		{
 			std::cout << "Unrecognized packet: " << packetType << std::endl;

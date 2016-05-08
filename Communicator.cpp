@@ -162,3 +162,14 @@ bool Communicator::sendPlayersPosition(SOCKET & client, std::string & message)
 	if (check == SOCKET_ERROR) return false;
 	else return true;
 }
+
+bool Communicator::sendBulletInformation(SOCKET & client, std::string & message)
+{
+	if (!sendPacketType(client, pBullet)) return false;
+	int bufferLength = message.size();
+	if (!sendMessageSize(client, bufferLength)) return false;
+
+	int check = send(client, message.c_str(), bufferLength, NULL);
+	if (check == SOCKET_ERROR) return false;
+	else return true;
+}

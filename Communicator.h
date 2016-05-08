@@ -19,7 +19,8 @@ enum Packet
 	pInitialize,
 	pNewPlayer,
 	pRemovePlayer,
-	pPosition
+	pPosition,
+	pBullet
 };
 
 class Communicator
@@ -39,6 +40,7 @@ public:
 	bool sendPlayerLeftAlert(SOCKET & client, std::string & message);
 	bool sendInitialization(SOCKET & client, std::string & message);
 	bool sendPlayersPosition(SOCKET & client, std::string & message);
+	bool sendBulletInformation(SOCKET & client, std::string & message);
 
 	SOCKADDR_IN addr;
 	int addrLength = sizeof(addr);
